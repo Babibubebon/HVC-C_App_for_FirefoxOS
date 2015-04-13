@@ -1,0 +1,32 @@
+#log {
+    width:800px;
+    height: 200px;
+    overflow: scroll;
+    border: solid 1px black;
+    display: inline-block;
+    float: right;
+}
+
+#device_list {
+    width: 50%;
+}
+
+#result_num dt, #result_num dd {
+    float: left;
+    padding-right: 1.5em; 
+}
+
+#result_body {
+    clear: both;
+}
+
+#result_body, #result_hand, #result_face {
+    float: left;
+    padding: 10px;
+}
+
+#result_face li {
+    display: table-cell;
+    vertical-align: top;
+    padding-right: 15px; 
+}

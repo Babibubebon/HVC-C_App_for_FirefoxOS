@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HVC-C for Firefox OS</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>    
+    <nav class="navbar navbar-default" role="navigation">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navibar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">HVC-C App for <b>Firefox OS</b></a>
+            </div>
+
+            <div class="collapse navbar-collapse" id="navibar">
+                <ul class="nav navbar-nav">
+                    <li><a href="#" class="select_device">Select device</a></li>
+                    <!--
+                    <li><a href="#" id="config">Config</a></li>
+                    -->
+                </ul>
+            </div><!-- /.navbar-collapse -->
+        </div><!-- /.container-fluid -->
+    </nav>
+    
+    <pre id="log"></pre>
+    
+    <div class="container-fluid">
+        <h2 id="connect_state">Scan</h2>
+        
+        <!-- Device List -->
+        <div id="list_content">
+            <button type="button" class="btn btn-default" id="search">Search</button>
+            <ul class="list-group" id="device_list"></ul>
+        </div>
+        
+        <!-- Device -->
+        <div id="device_content" hidden>
+            <button class="btn btn-default select_device">Disconnect</button>
+            <button class="btn btn-default" id="search_service">Search</button>
+            <button class="btn btn-default" id="configure">Configure</button>
+            <button class="btn btn-default" id="execute">Execute</button>
+            <dl>
+                <dt>Name:</dt>
+                <dd id="device_name"></dd>
+                <dt>Address:</dt>
+                <dd id="device_address"></dd>
+                <dt>RSSI:</dt>
+                <dd id="device_rssi"></dd>
+                <dt>Type:</dt>
+                <dd id="device_type"></dd>
+            </dl>
+
+            <section id="result" hidden>
+                <h2>Detection Result</h2>
+                
+                <section id="result_num">
+                    <h3>number of detections</h3>
+                    <dl>
+                        <dt>Body:</dt>
+                        <dd id="numBody"></dd>
+                        <dt>Hand:</dt>
+                        <dd id="numHand"></dd>
+                        <dt>Face:</dt>
+                        <dd id="numFace"></dd>
+                    </dl>
+                </section>
+                
+                <section id="result_body">
+                    <h3>Body</h3>
+                    <select name="body"></select>
+                    <dl>
+                        <dt>posX</dt>
+                        <dd class="posX"></dd>
+                        <dt>posY</dt>
+                        <dd class="posY"></dd>
+                        <dt>size</dt>
+                        <dd class="size"></dd>
+                        <dt>confidence</dt>
+                        <dd class="confidence"></dd>
+                    </dl>
+                </section>
+                
+                <section id="result_hand">
+                    <h3>Hand</h3>
+                    <select name="hand"></select>
+                    <dl>
+                        <dt>posX</dt>
+                        <dd class="posX"></dd>
+                        <dt>posY</dt>
+                        <dd class="posY"></dd>
+                        <dt>size</dt>
+                        <dd class="size"></dd>
+                        <dt>confidence</dt>
+                        <dd class="confidence"></dd>
+                    </dl>
+                </section>
+                
+                <section id="result_face">
+                    <h3>Face</h3>
+                    <select name="face"></select>
+                    <ul>
+                        <li>
+                            <dl>
+                                <dt>posX</dt>
+                                <dd class="posX"></dd>
+                                <dt>posY</dt>
+                                <dd class="posY"></dd>
+                                <dt>size</dt>
+                                <dd class="size"></dd>
+                                <dt>confidence</dt>
+                                <dd class="confidence"></dd>
+                            </dl>
+                        </li>
+                        <li>
+                            <h3>Direction</h3>
+                            <dl id="dir">
+                                <dt>yaw</dt>
+                                <dd class="yaw"></dd>
+                                <dt>pitch</dt>
+                                <dd class="pitch"></dd>
+                                <dt>roll</dt>
+                                <dd class="roll"></dd>
+                                <dt>confidence</dt>
+                                <dd class="confidence"></dd>
+                            </dl>
+                        </li>
+                        <li>
+                            <h3>Age</h3>
+                            <dl id="age">
+                                <dt>age</dt>
+                                <dd class="age"></dd>
+                                <dt>confidence</dt>
+                                <dd class="confidence"></dd>
+                            </dl>
+                        </li>
+                        <li>
+                            <h3>Gender</h3>
+                            <dl id="gen">
+                                <dt>gender</dt>
+                                <dd class="gender"></dd>
+                                <dt>confidence</dt>
+                                <dd class="confidence"></dd>
+                            </dl>
+                        </li>
+                        <li>
+                            <h3>Gaze</h3>
+                            <dl id="gaze">
+                                <dt>gazeLR</dt>
+                                <dd class="gazeLR"></dd>
+                                <dt>gazeUD</dt>
+                                <dd class="gazeUD"></dd>
+                            </dl>
+                        </li>
+                        <li>
+                            <h3>Blink</h3>
+                            <dl id="blink">
+                                <dt>ratioL</dt>
+                                <dd class="ratioL"></dd>
+                                <dt>ratioR</dt>
+                                <dd class="ratioR"></dd>
+                            </dl>
+                        </li>
+                        <li>
+                            <h3>Expression</h3>
+                            <dl id="exp">
+                                <dt>expression</dt>
+                                <dd class="expression"></dd>
+                                <dt>score</dt>
+                                <dd class="score"></dd>
+                                <dt>degree</dt>
+                                <dd class="degree"></dd>
+                            </dl>
+                        </li>
+                    </ul>
+                </section>
+            </section>
+            
+            <!--
+            <div id="gatt_list">
+                <h2>Sercice List</h2>
+                <ul id="service_list" class="list-group"></ul>
+                <h2>Characteristic List</h2>
+                <ul id="characteristic_list" class="list-group"></ul>
+                <h2>Descriptor List</h2>
+                <ul id
+            -->
+        </div>
+        <!-- /Device -->
+        
+        <!-- Config -->
+        <div id="config_content" hidden>
+            
+        </div>
+        <!-- /Config -->
+        
+    </div>
+
+    <script src="js/lib/jquery.min.js"></script>
+    <script src="js/lib/bootstrap.min.js"></script>
+    <script src="js/lib/loger.js"></script>
+    <script src="js/lib/arduino.js"></script>
+    <script src="js/HVC_PRM.js"></script>
+    <script src="js/HVC_RES.js"></script>
+    <script src="js/HVC.js"></script>
+    <script src="js/ble_gatt_client_control.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

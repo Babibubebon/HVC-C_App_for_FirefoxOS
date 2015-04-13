@@ -1,0 +1,21 @@
+{
+    "name": "HVC-C App for Firefox OS",
+    "description": "Omron HVC-C",
+    "default_locale": "ja",
+    "version": "1.1",
+    "launch_path": "/index.html",
+    "icons": {
+        "16": "/img/icon_16.png",
+        "48": "/img/icon_48.png",
+        "128": "/img/icon_128.png"
+    },
+    "developer": {
+        "name": "Toyota Shohei",
+        "url": "http: //babibubebo.org"
+    },
+    "type": "certified",
+    "permissions": {
+        "bluetooth": {},
+        "settings" : {"access": "readwrite"}
+    }
+}
