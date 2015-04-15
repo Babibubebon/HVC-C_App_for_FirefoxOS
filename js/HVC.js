@@ -33,29 +33,25 @@ var HVC = (function(){
     // GATT
     /* Characteristic Write Type */
     const WRITE_TYPE_NO_RESPONSE = 0x01;
-    const WRITE_TYPE_DEFAULT     = 0x02;
-    const WRITE_TYPE_SIGNED      = 0x04;
+    const WRITE_TYPE_DEFAULT = 0x02;
+    const WRITE_TYPE_SIGNED = 0x04;
 
     /* Characteristic Auth Type */
     const BTA_GATTC_TYPE_WRITE_NO_RSP = 0x01;
-    const BTA_GATTC_TYPE_WRITE        = 0x02;
+    const BTA_GATTC_TYPE_WRITE = 0x02;
     
     var constructor = function(){
         
         var bleGatt = null;
-        
         var id = {
             conn_id : null,
             srvc_id : null,
             char_id : null
         };
-        
         var write_type = WRITE_TYPE_DEFAULT;
         var auth_req   = 0;
-        
         var executedFunc = 0;
         
-        // 検出結果取得 Callback
         this.onResult = null;
         
         this.setBleGatt = function(arg){
@@ -68,254 +64,155 @@ var HVC = (function(){
             id.srvc_id  = srvc;
             id.char_id  = char;
         };
-        
-        //--------------
+
         var self = this;
-        var SetCameraAngle = function(param){
-            var sendData = HVC.Utils.byte2hex(param.CameraAngle & 0xff);
-            self.sendCommand(HVC_COM_SET_CAMERA_ANGLE, 1, sendData);
+
+        //--------------
+        // write settings
+        this.setCameraAngle = function(param){
+            var size = 1;
+            var data = new Uint8Array([param.CameraAngle]);
+
+            this.sendCommand(HVC_COM_SET_CAMERA_ANGLE, size, data.buffer);
         };
-        var SetThreshold = function(param){
-            var sendData = HVC.Utils.byte2hex([
-                param.body.Threshold
-                (param.body.Threshold >> 8),
+
+        this.setThreshold = function(param){
+            var size = 8;
+            var data = new ArrayBuffer(size);
+            var dataView = new DataView(data);
+
+            var params = [
+                param.body.Threshold,
                 param.hand.Threshold,
-                (param.hand.Threshold >> 8),
                 param.face.Threshold,
-                (param.face.Threshold >> 8),
-                0,
-                0]);
-            self.sendCommand(HVC_COM_SET_THRESHOLD, 8, sendData);
+                0
+            ];
+
+            for (var i = 0; i < size; i+=2) {
+                dataView.setUint16(i, params.shift(), true);
+            }
+
+            this.sendCommand(HVC_COM_SET_THRESHOLD, size, data);
         };
-        var SetSizeRange = function(param){
-            var sendData = HVC.Utils.byte2hex([
+
+        this.setSizeRange = function(param){
+            var size = 12;
+            var data = new ArrayBuffer(size);
+            var dataView = new DataView(data);
+            
+            var params = [
                 param.body.MinSize,
-                (param.body.MinSize >> 8),
                 param.body.MaxSize,
-                (param.body.MaxSize >> 8),
                 param.hand.MinSize,
-                (param.hand.MinSize >> 8),
                 param.hand.MaxSize,
-                (param.hand.MaxSize >> 8),
                 param.face.MinSize,
-                (param.face.MinSize >> 8),
-                param.face.MaxSize,
-                (param.face.MaxSize >> 8)
-            ]);
-            self.sendCommand(HVC_COM_SET_SIZE_RANGE, 12, sendData);
+                param.face.MaxSize
+            ];
+            
+            for (var i = 0; i < size; i+=2) {
+                dataView.setUint16(i, params.shift(), true);
+            }
+
+            this.sendCommand(HVC_COM_SET_SIZE_RANGE, size, data);
         };
-        var SetFaceDetectionAngle = function(param){
-            var sendData = HVC.Utils.byte2hex([param.face.Pose, param.face.Angle]);
-            self.sendCommand(HVC_COM_SET_DETECTION_ANGLE, 2, sendData);
+
+        this.setFaceDetectionAngle = function(param){
+            var size = 2;
+            var data = new Uint8Array([param.face.Pose, param.face.Angle]);
+
+            this.sendCommand(HVC_COM_SET_DETECTION_ANGLE, size, data.buffer);
         };
-        var GetVersion = function() {
+
+        //--------------
+        // read settings
+        this.getVersion = function() {
             self.sendCommand(HVC_COM_GET_VERSION, 0, '');
         };
+
         //--------------
-        
-        this.setParam = function(prm){
-            Log.d(TAG, "SetParam");
-            
-            SetCameraAngle(prm);
-            setTimeout(function(){
-                SetThreshold(prm);
-            }, 500);
-            setTimeout(function(){
-                SetSizeRange(prm);
-            }, 1000);
-            setTimeout(function(){
-                SetFaceDetectionAngle(prm);             
-            }, 1500);
-        };
-        
+        // send data
         this.execute = function(inExec){
-            Log.d(TAG, "Execute:0x" + HVC.Utils.byte2hex(inExec, 4));
-            
-            var sendData = HVC.Utils.byte2hex([inExec & 0xff, (inExec >> 8) & 0xff, 0]);
-            this.sendCommand(HVC_COM_EXECUTE, 3, sendData);
+            Log.d(TAG, "Execute:0x" + inExec.toString(16));
             executedFunc = inExec;
+
+            var size = 3;
+            var data = new ArrayBuffer(size);
+            var dataView = new DataView(data);
+            dataView.setUint16(0, inExec, true);
+
+            this.sendCommand(HVC_COM_EXECUTE, size, data);
         };
         
         this.sendCommand = function(inCommandNo, inDataSize, inData){
             Log.d(TAG, "Send:Command:0x" + HVC.Utils.byte2hex(inCommandNo));
             
+            var headerData = new ArrayBuffer(SEND_HEAD_NUM);
+            var headerDataView = new DataView(headerData);
+
             /* Create header */
-            var sendData = HVC.Utils.byte2hex([-2 & 0xff, inCommandNo, inDataSize & 0xff, (inDataSize >> 8) & 0xff]);
-            sendData += inData.slice(0, inDataSize * 2);
-            
+            headerDataView.setUint8(SEND_HEAD_SYNCBYTE, 0xfe);
+            headerDataView.setUint8(SEND_HEAD_COMMANDNO, inCommandNo);
+            headerDataView.setUint16(SEND_HEAD_DATALENGTHLSB, inDataSize, true);
+
+            var sendData = HVC.Utils.concatBuffer(headerData, inData);
             this.send(sendData);
-    };
+        };
         
         this.send = function(inData){
             if( !bleGatt || !id.conn_id || !id.srvc_id || !id.char_id ){
+                Log.e(TAG, "Failed to send data");
                 return;
             }
-            var len = inData.length;
+
+            var length = inData.byteLength;
+            var dataHexString = HVC.Utils.byte2hex(inData);
             
             Log.d(TAG, "Send:char_id:" + id.char_id.uuid);
-            Log.d(TAG, "Send:Data:" + len + "byte:" + inData);
-            
-            bleGatt.writeCharacteristic(id.conn_id, id.srvc_id, id.char_id, write_type, len, auth_req, inData);
+            Log.d(TAG, "Send:length:" + length);
+            Log.d(TAG, "Send:Data:" + dataHexString);
+
+            bleGatt.writeCharacteristic(id.conn_id, id.srvc_id, id.char_id, write_type, length, auth_req, dataHexString);
         };
         
         //----------------------
+        // receive data
         var buffer = [];
-        this.receiveData = function(value){
-            console.log("value:", value);
-            
+        this.receiveData = function(value) {
+            Log.d(TAG, "Receive:" + value);
+
             var bytes = HVC.Utils.hex2byte(value);
             buffer = buffer.concat(bytes);
             console.log("buffer.length:" + buffer.length);
-            
-            do{
+
+            do {
                 var dataLength = readHeader(buffer);
                 Log.d(TAG, "data length:" + dataLength);
-                if(dataLength === false){
-                    Log.d(TAG, 'Invalid response data');
+                if (dataLength === false) {
+                    Log.w(TAG, 'Invalid response data');
                     buffer = [];
                     return;
                 }
                 var resLength = dataLength + RECEIVE_HEAD_NUM;
-                if(buffer.length < resLength){
+                if (buffer.length < resLength) {
                     return;
                 }
                 var response = buffer.splice(0, resLength);
-                var recvData  = response.slice(RECEIVE_HEAD_NUM, RECEIVE_HEAD_NUM + dataLength);
-            }while(buffer.length > 0);
-            
-            if(dataLength === 0) return;
-            
-            var result = new HVC_RES();
-            result.executedFunc = executedFunc;
-            
-            if(dataLength >= 4){
-                result.num.body = recvData[0];
-                result.num.hand = recvData[1];
-                result.num.face = recvData[2];
-                dataLength -= 4;
-                recvData.splice(0, 4);
-                Log.d(TAG, 'num(body, hand, face):' + result.num.body +','+ result.num.hand +','+ result.num.face);
+                var recvData = response.slice(RECEIVE_HEAD_NUM, RECEIVE_HEAD_NUM + dataLength);
+            } while (buffer.length > 0);
+
+            if (dataLength === 0) {
+                return;
+            } else {
+                parseData(new Uint8Array(recvData).buffer);
             }
-            
-            /* Get Human Body Detection result */
-            for (var i = 0; i < result.num.body; i++) {
-                var body = new HVC_RES.DetectionResult();
-
-                if (dataLength >= 8) {
-                    body.posX = ((recvData[0] & 0xff) + (recvData[1] << 8));
-                    body.posY = ((recvData[2] & 0xff) + (recvData[3] << 8));
-                    body.size = ((recvData[4] & 0xff) + (recvData[5] << 8));
-                    body.confidence = ((recvData[6] & 0xff) + (recvData[7] << 8));
-                    dataLength -= 8;
-                    recvData.splice(0, 8);
-                }
-                result.body.push(body);
-            }
-
-            /* Get Hand Detection result */
-            for (var i = 0; i < result.num.hand; i++) {
-                var hand = new HVC_RES.DetectionResult();
-
-                if (dataLength >= 8) {
-                    hand.posX = ((recvData[0] & 0xff) + (recvData[1] << 8));
-                    hand.posY = ((recvData[2] & 0xff) + (recvData[3] << 8));
-                    hand.size = ((recvData[4] & 0xff) + (recvData[5] << 8));
-                    hand.confidence = ((recvData[6] & 0xff) + (recvData[7] << 8));
-                    dataLength -= 8;
-                    recvData.splice(0, 8);
-                }
-                result.hand.push(hand);
-            }
-            
-            /* Face-related results */
-            for (var i = 0; i < result.num.face; i++) {
-                var face = new HVC_RES.FaceResult();
-                
-                /* Face Detection result */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_FACE_DETECTION)) {
-                    Log.d(TAG, "Face Detection result");
-                    if (dataLength >= 8) {
-                        face.posX = ((recvData[0] & 0xff) + (recvData[1] << 8));
-                        face.posY = ((recvData[2] & 0xff) + (recvData[3] << 8));
-                        face.size = ((recvData[4] & 0xff) + (recvData[5] << 8));
-                        face.confidence = ((recvData[6] & 0xff) + (recvData[7] << 8));
-                        dataLength -= 8;
-                        recvData.splice(0, 8);
-                    }
-                }
-
-                /* Face direction */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_FACE_DIRECTION)) {
-                    if (dataLength >= 8) {
-                        face.dir.yaw   = HVC.Utils.convSigned( ((recvData[0] & 0xff) + (recvData[1] << 8)), 16);
-                        face.dir.pitch = HVC.Utils.convSigned( ((recvData[2] & 0xff) + (recvData[3] << 8)), 16);
-                        face.dir.roll  = HVC.Utils.convSigned( ((recvData[4] & 0xff) + (recvData[5] << 8)), 16);
-                        face.dir.confidence = ((recvData[6] & 0xff) + (recvData[7] << 8));
-                        dataLength -= 8;
-                        recvData.splice(0, 8);
-                    }
-                }
-
-                /* Age */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_AGE_ESTIMATION)) {
-                    if (dataLength >= 3) {
-                        face.age.age = recvData[0];
-                        face.age.confidence = ((recvData[1] & 0xff) + (recvData[2] << 8));
-                        dataLength -= 3;
-                        recvData.splice(0, 3);
-                    }
-                }
-
-                /* Gender */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_GENDER_ESTIMATION)) {
-                    if (dataLength >= 3) {
-                        face.gen.gender = recvData[0];
-                        face.gen.confidence = ((recvData[1] & 0xff) + (recvData[2] << 8));
-                        dataLength -= 3;
-                        recvData.splice(0, 3);
-                    }
-                }
-
-                /* Gaze */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_GAZE_ESTIMATION)) {
-                    if (dataLength >= 2) {
-                        face.gaze.gazeLR = HVC.Utils.convSigned(recvData[0], 8);
-                        face.gaze.gazeUD = HVC.Utils.convSigned(recvData[1], 8);
-                        dataLength -= 2;
-                        recvData.splice(0, 2);
-                    }
-                }
-
-                /* Blink */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_BLINK_ESTIMATION)) {
-                    if (dataLength >= 4) {
-                        face.blink.ratioL = ((recvData[0] & 0xff) + (recvData[1] << 8));
-                        face.blink.ratioR = ((recvData[2] & 0xff) + (recvData[3] << 8));
-                        dataLength -= 4;
-                        recvData.splice(0, 4);
-                    }
-                }
-
-                /* Expression */
-                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_EXPRESSION_ESTIMATION)) {
-                    if (dataLength >= 3) {
-                        face.exp.expression = recvData[0];
-                        face.exp.score  = recvData[1];
-                        face.exp.degree = HVC.Utils.convSigned(recvData[2], 8);
-                        dataLength -= 3;
-                        recvData.splice(0, 3);
-                    }
-                }
-                result.face.push(face);
-            }
-            
-            this.onResult(result);
         };
-        
+
         var readHeader = function(data){
+            data = new Uint8Array(data);
+            var dataView = new DataView(data.buffer);
             if (data[RECEIVE_HEAD_SYNCBYTE] === 0xfe && data.length >= RECEIVE_HEAD_NUM) {
-                var response_code = data[RECEIVE_HEAD_STATUS];
-                switch(response_code){
+                var responseCode = data[RECEIVE_HEAD_STATUS];
+                switch(responseCode){
                     case 0x00:
                         Log.d(TAG, '正常終了');
                         break;
@@ -329,19 +226,129 @@ var HVC = (function(){
                         Log.d(TAG, '不正なコマンド');
                         break;
                     default:
-                        if(0xfa <= response_code && response_code <= 0xfc){
+                        if(0xfa <= responseCode && responseCode <= 0xfc){
                             Log.d(TAG, '通信エラー');
-                        }else if(0xf0 <= response_code && response_code <= 0xf9){
+                        }else if(0xf0 <= responseCode && responseCode <= 0xf9){
                             Log.d(TAG, '通信エラー');
                         }
                         break;
                 }
-                var length = HVC.Utils.byte2hex(data.slice(2, 4).reverse());
-                length = HVC.Utils.hex2byte(length, 4);
+                var length = dataView.getUint32(RECEIVE_HEAD_DATALENLL, true);
                 return length;
             }else{
                 false;
             }
+        };
+
+        var parseData = function(data) {
+            var result = new HVC_RES();
+            result.executedFunc = executedFunc;
+
+            var pos = 0;
+            /* Get the number of detection results */
+            var view = new DataView(data, pos, 4);
+            result.num.body = view.getUint8(0);
+            result.num.hand = view.getUint8(1);
+            result.num.face = view.getUint8(2);
+            pos += 4;
+            Log.d(TAG, 'num(body, hand, face):' + result.num.body +','+ result.num.hand +','+ result.num.face);
+
+            /* Get Human Body Detection result */
+            for (var i = 0; i < result.num.body; i++) {
+                var body = new HVC_RES.DetectionResult();
+                view = new DataView(data, pos, 8);
+
+                body.posX = view.getUint16(0, true);
+                body.posY = view.getUint16(2, true);
+                body.size = view.getUint16(4, true);
+                body.confidence = view.getUint16(6, true);
+
+                result.body.push(body);
+                pos += 8;
+            }
+
+            /* Get Hand Detection result */
+            for (var i = 0; i < result.num.hand; i++) {
+                var hand = new HVC_RES.DetectionResult();
+                view = new DataView(data, pos, 8);
+
+                hand.posX = view.getUint16(0, true);
+                hand.posY = view.getUint16(2, true);
+                hand.size = view.getUint16(4, true);
+                hand.confidence = view.getUint16(6, true);
+
+                result.hand.push(hand);
+                pos += 8;
+            }
+
+            /* Face-related results */
+            for (var i = 0; i < result.num.face; i++) {
+                var face = new HVC_RES.FaceResult();
+
+                /* Face Detection result */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_FACE_DETECTION)) {
+                    view = new DataView(data, pos, 8);
+                    face.posX = view.getUint16(0, true);
+                    face.posY = view.getUint16(2, true);
+                    face.size = view.getUint16(4, true);
+                    face.confidence = view.getUint16(6, true);
+                    pos += 8;
+                }
+
+                /* Face direction */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_FACE_DIRECTION)) {
+                    view = new DataView(data, pos, 8);
+                    face.dir.yaw   = view.getInt16(0, true);
+                    face.dir.pitch = view.getInt16(2, true);
+                    face.dir.roll  = view.getInt16(4, true);
+                    face.dir.confidence = view.getUint16(6, true);
+                    pos += 8;
+                }
+
+                /* Age */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_AGE_ESTIMATION)) {
+                    view = new DataView(data, pos, 3);
+                    face.age.age = view.getUint8(0);
+                    face.age.confidence = view.getUint16(1, true);
+                    pos += 3;
+                }
+
+                /* Gender */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_GENDER_ESTIMATION)) {
+                    view = new DataView(data, pos, 3);
+                    face.gen.gender = view.getUint8(0);
+                    face.gen.confidence = view.getUint16(1, true);
+                    pos += 3;
+                }
+
+                /* Gaze */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_GAZE_ESTIMATION)) {
+                    view = new DataView(data, pos, 2);
+                    face.gaze.gazeLR = view.getInt8(0);
+                    face.gaze.gazeUD = view.getInt8(1);
+                    pos += 2;
+                }
+
+                /* Blink */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_BLINK_ESTIMATION)) {
+                    view = new DataView(data, pos, 4);
+                    face.blink.ratioL = view.getUint16(0, true);
+                    face.blink.ratioR = view.getUint16(2, true);
+                    pos += 4;
+                }
+
+                /* Expression */
+                if (0 !== (result.executedFunc & HVC.HVC_ACTIV_EXPRESSION_ESTIMATION)) {
+                    view = new DataView(data, pos, 3);
+                    face.exp.expression = view.getUint8(0);
+                    face.exp.score  = view.getUint8(1);
+                    face.exp.degree = view.getInt8(2);
+                    pos += 3;
+                }
+                result.face.push(face);
+            }
+
+            self.onResult(result);
         };
         
     };
@@ -393,27 +400,21 @@ HVC.HVC_EX_ANGER = 4;
 HVC.HVC_EX_SADNESS = 5;
 
 HVC.Utils = {
-    byte2hex: function (num, len) {
-        len = (len === undefined) ? 2 : len;
-        var zero = Array(len).join('0');
-        var mask = Math.pow(0x10, len) - 1;
-
-        var convert = function (num) {
-            num = (num < 0) ? num & mask : num;
-            return (zero + num.toString(16)).slice(-len);
-        };
-
-        if (typeof num === 'number') {
-            return convert(num);
+    byte2hex: function (bytes) {
+        if (typeof bytes === 'number') {
+            bytes = [bytes];
         }
-        if (Array.isArray(num)) {
-            var hex = '';
-            for (var i = 0; i < num.length; i++) {
-                hex += convert(num[i]);
-            }
-            return hex;
+        if (!(bytes instanceof ArrayBuffer) && !Array.isArray(bytes)) {
+            return false;
         }
-        return false;
+
+        var ary_ui8 = new Uint8Array(bytes);
+        var hex = '';
+        var zero = Array(2).join('0');
+        for (var i = 0; i < ary_ui8.length; i++) {
+            hex += (zero + ary_ui8[i].toString(16)).slice(-2);;
+        }
+        return hex;
     },
     hex2byte: function (str, len) {
         len = (len === undefined) ? 2 : len;
@@ -422,17 +423,91 @@ HVC.Utils = {
             var byte = str.substr(i, len);
             byteArray.push(parseInt(byte, 16));
         }
-        if (byteArray.length === 1) {
-            return byteArray[0];
-        } else {
-            return byteArray;
-        }
+        return byteArray;
     },
-    convSigned: function (int, len) {
-        if (int & (1 << len - 1)) {
-            return -((~int & ((1 << len - 1) - 1)) + 1);
-        } else {
-            return int;
-        }
+    concatBuffer: function (buf1, buf2) {
+        var retArray = new Uint8Array(buf1.byteLength + buf2.byteLength);
+        retArray.set(new Uint8Array(buf1), 0);
+        retArray.set(new Uint8Array(buf2), buf1.byteLength);
+        return retArray.buffer;
     }
 }
+
+
+var HVC_PRM = function(){
+    var DetectionParam = {
+        MinSize: 40,
+        MaxSize: 480,
+        Threshold: 500
+    };
+
+    var FaceParam = Object.create(DetectionParam);
+    FaceParam.Pose  = 0x00;
+    FaceParam.Angle = 0x00;
+
+    this.CameraAngle = 0x00;
+    this.body = Object.create(DetectionParam);
+    this.hand = Object.create(DetectionParam);
+    this.face = Object.create(FaceParam);
+};
+
+
+var HVC_RES = function(){
+    this.executedFunc = null;
+    this.body = [];
+    this.hand = [];
+    this.face = [];
+    this.num = {
+        body: 0,
+        hand: 0,
+        face: 0
+    };
+};
+
+HVC_RES.DetectionResult = function(){
+    this.posX = -1;
+    this.posY = -1;
+    this.size = -1;
+    this.confidence = -1;
+};
+
+HVC_RES.FaceResult = function(){
+    HVC_RES.DetectionResult.call(this);
+
+    var DirResult = {
+        yaw: -1,
+        pitch: -1,
+        roll: -1,
+        confidence: -1
+    };
+    var AgeResult = {
+        age: -1,
+        confidence: -1
+    };
+    var GenResult = {
+        gender: -1,
+        confidence: -1
+    };
+    var GazeResult = {
+        gazeLR: -1,
+        gazeUD: -1
+    };
+    var BlinkResult = {
+        ratioL: -1,
+        ratioR: -1
+    };
+    var ExpResult = {
+        expression: -1,
+        score: -1,
+        degree: -1
+    };
+
+    this.dir = DirResult;
+    this.age = AgeResult;
+    this.gen = GenResult;
+    this.gaze = GazeResult;
+    this.blink = BlinkResult;
+    this.exp = ExpResult;
+};
+HVC_RES.FaceResult.prototype = Object.create(HVC_RES.DetectionResult.prototype);
+HVC_RES.FaceResult.prototype.constructor = HVC_RES.FaceResult;

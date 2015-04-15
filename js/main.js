@@ -531,16 +531,19 @@ $(function () {
     function showConfig(show) {
         
     }
-    
+
     //----------------------------
     // HVC-C
     //----------------------------
     $('#configure').on('click', function(){
         hvcPrm.face.MinSize = 60;
         hvcPrm.face.MaxSize = 240;
-        hvcBle.setParam(hvcPrm);
+        hvcBle.setCameraAngle(hvcPrm);
+        hvcBle.setFaceDetectionAngle(hvcPrm);
+        hvcBle.setSizeRange(hvcPrm);
+        hvcBle.setThreshold(hvcPrm);
     });
-    
+
     $('#execute').on('click', execute);
     
     function execute(){
